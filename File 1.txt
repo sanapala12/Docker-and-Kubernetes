@@ -1,8 +1,7 @@
-//// Day1 ///////// 7838134980
+
 
 naresh
-i-058bf9170faef91bb
-13.212.254.30
+
 
 
 i install the docker
