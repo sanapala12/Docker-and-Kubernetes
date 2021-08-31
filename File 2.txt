@@ -1,0 +1,284 @@
+
+// Day 2
+
+Docker Labs
+Run our first container 
+  Image Naming convention of DockerHUB
+  reponame:tag
+ eg hello:world
+hello-world is the name of repo
+and there is no tag specified if no tag specified then the tag is latest
+docker first check the image locally if present run the container if not present then it will check docker hub and find hello-worold public repo and download the image with latest tag locally and then run the container
+Every docker image contains a default command that will be executed when you run the container using the image. if the command is  along running process then your container wll be in running state . if the command is a short running process it will start do its job and the process terminates and hence the container also exits
+to list all running container
+$ docker container ls 
+To list all containers
+$ docker container ls -a
+Run container in interactive mode
+docker container run --name test -it centos
+you ar in container shell prompt
+execute 
+ps -ef
+and see /bin/bash is the parent process having pid 1. if the parent process gets stoppeed the container slao exits
+type exit
+$ docker container ls -a
+you will see the container exits
+7980312519
+
+Run the container again
+docker container run --name test1 -it centos
+now insted of typing exit press CTRL+p+q at once and you wil coe out of the container prompt
+$ docker container ls 
+you will see the container running
+if you want to to back to the container prompt then
+$ docker container attach test1
+exit from the container
+exit
+
+
+////////////////////////////////////////////
+
+Running the container in detached mode
+
+$ docker container run --name webserver tomee:latest
+
+the container will start in foreground mode that means the terminal will be used as the output device of the container. Try to press ctrl+c
+and you will see the container gets exited
+
+$ docker container ls -a
+
+To start the container in detach mode(recommended for all containers)
+
+$ docker container run --name webserver1 -d tomcat:latest
+
+to login to the running containers
+
+docker container exec -it webserver1 sh
+apt-get update
+apt-get install procps -y
+ps -ef
+
+execute ps -ef command and check the process tree
+
+to come out of the container. type
+exit
+
+you will see the container is still running and it has not termainate. use aleays the docker exec commsnd to login to the existing running containers
+
+
+$ docker container ls
+
+To check the logs
+
+$ docker container logs webserver1
+
+or
+
+$ docker container logs containerid
+
+to stop the container
+
+docker container stop containername/id
+
+$ docker container stop 54ce1
+
+to start the container
+
+docker container start containerid/name
+
+$ docker container start 54ce1
+
+to delete the container
+
+first stop the container and then delete it
+
+$  docker container stop web
+$ docker container rm web
+
+to check the container resource usage
+
+$ docker container stats
+
+To delete all the stopped container at one go
+
+$ docker container prune
+
+Docker directory where all information of containers are stored
+
+$ sudo ls -l /var/lib/docker
+
+exposing the application to outside world
+
+Delete all the containers
+
+docker container ls -aq|xargs docker container stop
+docker container ls -aq|xargs docker container rm
+
+
+///////////////////////////////
+
+Run the container suing port mapping
+$ docker container run --name nginx1 -d -P nginx
+To check the IP of the container
+$ docker container inspect nginx1
+To check the port mapping
+$ docker container ls 
+open web browser and use the public ip and the port starting from 49153
+you will able to see the application webpage
+Try to run another container
+$ docker container run --name webserver1 -d -P tomee
+ Check the port and access the web page using pub;icip:portnumber
+Check the address translation rules using
+$ sudo iptables-save|grep -i 49153
+to manually map the hostport
+$ docker container run --name httpserver -d -p 8088:80 httpd
+Check
+$ docker container ls
+access the application using publicip:8088
+
+
+///Practice history
+
+ip a
+   65  docker container run --name web1 -d nginx
+   66  docker container run --name app1 -d tomee
+   67  docker container ls
+   68  docker container inspeect web1|grep -i "IPAdress"
+   69  docker container inspect web1|grep -i "IPAdress"
+   70  docker container inspect web1|grep -i "IPAddress"
+   71  docker container inspect app1|grep -i "IPAddress"
+   72  ip a
+   73  docker network ls
+   74  ping 172.17.0.1
+   75  ping 172.17.0.2
+   76  ping 172.17.0.3
+   77  docker network inspect bidge
+   78  docker network inspect bridge
+   79  curl -v http://172.17.0.2
+   80  curl -v http://172.17.0.3:8080
+   81  docker container ls
+   82  docker container rm -f web1
+   83  docker container rm -f app1
+   84  clear
+   85  docker container run --name web1 -d -P nginx
+   86  docker container ls
+   87  netstat -an |grep -i 49153
+   88  sudo iptables-save|grep -i 49153
+   89  docker container run --name app1 -d -P tomee
+   90  docker container ls
+   91  netstat -an|grep -ii 49154
+   92  netstat -an|grep -i 49154
+   93  sudo iptables-save|grep -i 49154
+   94  docker container run --name apacheserver -d -p 8090:80 httpd
+   95  docker container ls
+   96  sudo iptables-save|grep -i 8090
+   
+   
+  /////////////////////////
+
+Docker Volumes
+
+Docker volumes
+Create the container using volume
+
+delete all the container
+docker container ls -aq|xargs docker container stop
+docker container ls -aq|xargs docker container rm
+
+Create the container
+
+$ docker container run --name web -d -P -v datavolume1:/var/www/html-sample-app nginx
+Login to the container
+
+$ docker container exec -it web bash
+cd /var/www/html-sample-app
+touch a b c d e f g
+exit
+
+change it to root
+sudo su -
+ls -l /var/lib/docker/volumes/datavolume1/_data
+
+you will see all the files
+
+Check the volume mapping using the following command
+
+$ docker container inspect web |more
+see the mount section
+
+delete the container
+$ docker container stop web
+$ docker container rm web
+
+check the container is delete but not the volume
+$ docker container ls
+$ docker volume ls
+
+To map th exisiting created directory as docker volume
+sudo mkdir /web
+docker container run --name webserver1 -d -P -v /web:/var/log/nginx nginx
+login to the container
+$ docker container exec -it webserver1 bash
+cd /var/log/nginx
+touch file1 testfile
+exit
+ls -l /web
+you will see the files error.log file1 and testfile1
+
+check in this case we are mapping a existing created directory there is no volume created
+
+$ docker volume ls
+
+To delete the volum finally delete the container and delete the volume
+
+$ docker container stop web webseerver1
+$ docker container rm web webserver1
+
+
+/////////////////////////////////
+
+
+Create the docker image using Intercative method 
+
+Creating the docker image using interactive method
+$ docker container run -it centos
+yum install curl git httpd -y
+echo " Welcome to the world of Docker and Kubernetes" >/var/www/html/index.html
+cd /var/www/html
+apachectl -D foreground
+press ctrl+pq
+$ docker container inspect containerid
+check the ip of the container
+$ curl -v http://container_ip:80
+you will see the webpage
+Stop the container 
+$ docker container stop container_id
+Commit the container to docker image
+docker container commit containerid web:httpdv1
+list the new image using
+docker image ls
+run the new image 
+docker container run —name webserver1 -d -P web:httpdv1
+list the running container
+docker container ls
+you will see that no container is running state
+docker container ls -a
+you can see the container webserver1 is stopped. the container is stopped due to the wrong command. the command should be the command using which the application start(apachectl -D foreground) instead of /bin/bash
+the container will only run if the default command in the image is the coorect command using which the application starts
+recreate the docker image using the command. replace containerid with your containerid
+docker container commit --change='CMD ["apachectl", "-DFOREGROUND"]' -c "EXPOSE 80" containerid  web:httpdv2
+
+check the image using
+docker image ls 
+Run the container using the command
+docker container run --name webhttp -d -P web:httpdv2
+browse the web page using the publicip and port . check the host port using the command
+$ docker container ls
+
+////////////
+
+Do the online labs
+
+https://training.play-with-docker.com/ops-s1-hello/
+
+https://training.play-with-docker.com/ops-s1-images

@@ -1,0 +1,78 @@
+
+Pushing images to docker hub
+Storing Image in Docker Hub
+To list the image
+$ docker image ls
+you will have the image with name web:httpdv2 try to push the image using
+login to dockerhub first
+$ docker login
+provide you dockerid and password
+$ docker image push web:httpdv2
+you will get a permission denied meesage because you do not have access to the web repo. you can only push to the repo which belongs to your dockerid
+Create a new image name from the existing image using
+$ docker image tag web:httpdv2 dockerid/web:httpdv2
+replace dockerid  with your dockerid
+$ docker image push dockerid/web:httpdv2
+Login to dockerhub in your browser and check the new repo web is being crated and in tag tab you will find the image 
+Delete the existing image and container
+docker container ls -aq|xargs docker stop
+$ docker container prune
+$ docker image rm web:httpdv1
+$ docker image rm web:httpdv2
+$ docker image rm dockerid/web:httpdv2
+Run the container with the newly pushed image
+$ docker container run --name webserver -d -P dockerid/web:httpdv2
+you will see docker will pull the image from dockerhub and run the container
+
+
+===========================================================================
+
+Dockefile
+Create the docker image using dockerfile
+mkdir webapp
+cd webapp
+echo "Welcome to the world of Containers" >index.html
+cat > Dockerfile
+FROM ubuntu:16.04
+RUN apt-get update
+RUN apt-get install curl git apache2 -y
+WORKDIR /var/www/html
+COPY index.html . 
+CMD ["apachectl", "-DFOREGROUND"]
+EXPOSE 80
+
+save the file using ctrl-d
+please replace hamidulrahman82 with your docker id
+
+$ docker image build -t dockerid/httpd:v1 .
+Run the container
+docker container run --name apache2 -d -P dockerid/httpd:v1
+browse the publicip:hostport
+check the hostport using the command
+$ docker container ls
+Store the image to Dockerhub
+$ docker image push dockerid/httpd:v1
+check the image using 
+$ docker image ls
+
+Modify the index.html file 
+echo " Welcome to the world of Kubernetes and Orchestration" > index.html
+Rebuild the image
+docker image build -t dockerid/httpd:v2 .
+run the container
+$ docker container run --name apache2v2 -d -P dockerid/httpd:v2
+check the container and the host port
+$ docker container ls
+push the image to th docker repo
+docker image push dockerid/httpd:v2
+docker image ls 
+go to dokerhub and click on repositrories select the repo httpd and select tag 
+you will find both the image
+
+online lab :
+
+https://training.play-with-docker.com/beginner-linux/
+
+Multi stage bulid
+
+https://training.play-with-docker.com/node-zeit-pkg/

@@ -1,0 +1,100 @@
+
+
+naresh1a
+i-07b4e7c2553fe492b
+54.179.41.199
+
+
+ 
+naresh1b
+i-0af69b3dbf8871eb8
+13.213.64.247
+
+//////////////////////////
+Login to node 1a
+
+ and perform the following steps
+Setup the hostname in the first node
+$ sudo hostnamectl set-hostname k8master
+Letting iptables see bridged traffic
+$ sudo modprobe br_netfilter
+$ cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+$ sudo sysctl --system
+Instaling Docker
+$ sudo apt-get update
+$ sudo apt-get install docker.io -y
+$ sudo systemctl enable docker
+$ sudo systemctl start docker
+Add the Kubernetes Repository
+$ sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+$ curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+$ cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+$ sudo apt-get update
+$ sudo apt-get install -y kubelet=1.21.0-00 kubeadm=1.21.0-00 kubectl=1.21.0-00
+
+
+//
+
+
+
+/////////////////////////
+
+Node 2
+
+Setup the hostname in the second node
+$ sudo hostnamectl set-hostname k8worker1
+Letting iptables see bridged traffic
+$ sudo modprobe br_netfilter
+$ cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+$ sudo sysctl --system
+Instaling Docker
+$ sudo apt-get update
+$ sudo apt-get install docker.io -y
+$ sudo systemctl enable docker
+$ sudo systemctl start docker
+Add the Kubernetes Repository
+$ sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+$ curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+$ cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+$ sudo apt-get update
+sudo apt-get install -y kubelet=1.21.0-00 kubeadm=1.21.0-00 kubectl=1.21.0-00
+
+
+//////////////////
+
+Login back to node 1a
+Setup kubernetes master using kubeadm init
+$ sudo kubeadm init
+Setup the kubectl config file
+$ mkdir -p $HOME/.kube
+$ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+$ sudo chown $(id -u):$(id -g) $HOME/.kube/config
+Check the node status
+$ kubectl get node  
+The node will be shown as not ready
+Check the pod status using
+$ kubectl get pod -n kube-system 
+Apply the CNI plugin
+$ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+Check the node status
+$ kubectl get node
+
+sudo kubeadm token create --print-join-command
+
+kubeadm join 172.16.9.33:6443 --token yndrbi.g7q1pnm8x5hwghwz --discovery-token-ca-cert-hash sha256:39b226baa3eaf83f2b768a62bd37f453c102063eeaf42601fb9aebfe84ad906a
+
+
+copy the kubeadm join command display as the output of the command and login to node 1b and execute using sudo
+Login to node 1b and join the node as worker node
+$ sudo kubeadm join (paste the full command which you have copied from the master node
+

@@ -1,0 +1,270 @@
+
+naresh1a
+i-07b4e7c2553fe492b
+54.179.203.180
+
+
+
+
+
+naresh1b
+i-0af69b3dbf8871eb8
+13.213.3.36
+
+///Replica Setting //////////
+
+Replicaset lab
+cd k8template
+delete all the pod
+
+$ kubectl delete pod --all
+cat >vote-rs.yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: vote
+spec:
+  replicas: 5
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: vote
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: vote
+      labels:
+        app: python
+        role: vote
+        version: v2
+    spec:
+      containers:
+        - name: app
+          image: schoolofdevops/vote:v2
+          ports:
+            - containerPort: 80
+              protocol: TCP
+ctrl+d to save
+create the repicaset
+$ kubectl apply -f vote-rs.yaml
+To list the replicaset
+$ kubectl get rs
+to list the pods
+$ kubectl get pod
+to display detailed information about pod
+$ kubectl describe rs vote
+Test the pod HA by deleting one pod
+$ kubectl get pod
+copy one of the pod name
+$ kubectl delete pod podname
+eg
+$ kubectl delete pod vote-5shbs
+ you will see a new pod immidiately created
+Creare the normal pod using the folliwng yaml file
+cat > newpod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vote
+  labels:
+    app: python
+    role: vote
+    version: v1
+spec:
+  containers:
+    - name: app
+      image: schoolofdevops/vote:v2
+      ports:
+        - containerPort: 80
+          protocol: TCP
+ctrl+d
+$ kubectl apply -f newpod.yaml
+$ kubectl get pod
+you will see the new pod is terminating . the reason of terminating of the new pod that the new pod is having the same label what is there in the selector of the rs
+Changed the desired state of replicaset by editing the file vote-rs.yaml and modify the replicas from 5 to 8
+and then
+$ vi vote-rs.yaml
+chnage replca count to 8
+$ kubectl apply -f vote-rs.yaml
+Modify the replica count using command
+$ kubectl scale rs vote --replicas=6
+Updating the application image in Replicaset
+modify the vote-rs.yaml file and update the pod label to v3 and the image version to v3
+vi vote-rs.yaml  
+the file content should be like this 
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: vote
+spec:
+  replicas: 4
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: vote
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: vote
+      labels:
+        app: python
+        role: vote
+        version: v3
+    spec:
+      containers:
+        - name: app
+          image: schoolofdevops/vote:v3
+          ports:
+            - containerPort: 80
+              protocol: TCP
+kubectl apply -f vote-rs.yaml
+To verify the change 
+$ kubectl describe rs vote 
+you will see the label and umage get updated and now lets verify the pod
+$ kubectl get pod
+copy any one of the pod name and execute
+$ kubectl describe pod pod_name
+you will find the pod desription container the old label and old image. 
+Delete the pod and check the newly crated pod
+$ kubectl describe pod podname
+you will see the new pod is updated with the new label and docker image.
+Delete the rest of the pod and verify all the pod using th above command.
+Replicaset do not have the functionality of performing auto upgrade of the application. After modifying the image user need to manually delete the pod and then new pod created with the new version
+
+
+//////////////////////////////////////////////////
+
+Service Discovery
+Pod to pod Communication in same namespace
+kubectl run web --image=nginx --port=80 -l role=web
+ kubectl run app --image=tomee --port=8080 -l role=app
+  kubectl get pod
+create the Service using the command line
+
+Service for app pod
+ kubectl expose pod app —name appsvc --port=8080 --selector role=app
+Check the service status
+ kubectl get svc
+Login to the web pod
+ kubectl exec -it web sh
+Execute the following command
+curl -v http://appsvc:8080  10.44.0.2:8080
+
+you will able to see the tomcat webpage in cli mode. To understand it further install the following package
+apt-get update
+apt-get install dnsutils -y
+nslookup appsvc
+you will see the dns server and the service ip address of the web and app service. The service name to service ip is resolved by coredns pod which is using the kube-dns service. Every pod is having a /etc/resolv.conf file which has the nameserver address as the dns server address
+type exit to come out of the pod
+kubectl get svc -n kube-system
+you will see the kube-dns service and the ip address is 10.96.0.10
+to dig it further execute the following pod
+kubectl describe svc kube-dns -n kube-system
+find the endpoints and see the ip address listed in the endpoint
+kubectl get pod -o wide -n kube-system
+you will see the endpoints in the kube-dns service are nothing but the ip address of the core dns pods
+Check the service status and get the ip address of the pod
+  kubectl get svc
+  kubectl get pod -o wide
+to get the details on service endpoints( the service name will be resolved to cluster ip by coredns and the clusterip will forward the request to the appropriate pod . Service identifies the pod (endpoints) with the help of selector which matches the pod label) to get the details 
+  kubectl describe svc web
+  kubectl get pod -o wide --show-labels
+  kubectl describe svc app
+pod will use service name for communication with other pod, service name resolves to cluster ip, clusterip will forward the request to the pods
+
+Pod to pod communication between different namespaces
+delete the app service and the pod
+ kubectl delete svc appsvc
+ kubectl delete pod app
+ kubectl get ns
+create a new namespaces
+kubectl create prod
+create the pod and the service in prod ns
+ kubectl create ns prod
+ kubectl run app --image=tomee --port=8080 -l role=app -n prod
+  kubectl expose pod app --name appsvc --port=8080 --selector role=app -n prod
+  check the pod and the svc in ns prod
+  kubectl get pod -n prod
+  kubectl get svc -n prod
+  kubectl get pod,svc
+login to the pod web 
+  198  kubectl exec -it web bash
+curl -v http://appsvc:8080
+you will see the service name app will not be resolved as the app service is in different namespace
+nslookup appsvc
+the service name will not be able to resolved as the service name is not in same ns
+curl -v http://appsvc.prod:8080
+now you will able to see the web page
+nslookup appsvc.prod
+the service name will now be resolved
+in order  for pod communication between different namespace the servicename.ns should be used
+type exit to come out of container prompt
+
+///////////////// Accssing from outside////////////////////////////////////////
+
+
+kubectl delete pod web
+kubectl delete pod db -n training
+kubectl delete svc web
+kubectl delete svc db -n training
+Use the following vote-rs.yaml file
+cat > vote-rs.yaml 
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: vote
+spec:
+  replicas: 8
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: vote
+    matchExpressions:
+      - {​key: version, operator: In, values: [v1, v2, v3]}​
+  template:
+    metadata:
+      name: vote
+      labels:
+        app: python
+        role: vote
+        version: v2
+    spec:
+      containers:
+        - name: app
+          image: schoolofdevops/vote:v2
+          ports:
+            - containerPort: 80
+              protocol: TCP
+create the replicaset using the following command
+kubectl apply -f vote-rs.yaml
+Create the vote-svc.yaml file
+cat > vote-svc.yaml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: vote
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    role: vote
+  type: NodePort
+kubectl apply -f vote-svc.yaml
+check the service using the following command
+kubectl get svc
+the service vote type is NodePort and the the first port in the port column (80) is the container port and the second is the nodeport (31208) For you the nodeport may be different
+ubuntu@k8master:~$ kubectl get svc
+NAME         TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+kubernetes   ClusterIP   10.96.0.1        <none>        443/TCP        21h
+vote         NodePort    10.103.163.141   <none>        80:31208/TCP   3m5s
+web          ClusterIP   10.105.241.104   <none>        80/TCP         51m
+
+Check the service details and the endpoint details
+kubectl describe svc vote
+
+open the browser and put the publicip of your workernode and nodeport in the below syntax
+http://publicip:nodeport

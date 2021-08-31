@@ -1,0 +1,76 @@
+//// Day1 ///////// 7838134980
+
+naresh
+i-058bf9170faef91bb
+13.212.254.30
+
+
+i install the docker
+
+Set the hosname
+
+$ sudo hostnamectl set-hostname dockerhost1
+
+Enable the docker repo
+
+$ sudo apt-get update
+
+Install the docker
+
+$ sudo apt-get install docker.io -y
+
+Enable the docker to start at every boot
+
+$ sudo systemctl enable docker
+
+Start the docker service
+
+$ sudo systemctl start docker
+
+Add the user ubuntu to docker group so that ubuntu user can execute docker command
+
+$ sudo usermod -aG docker ubuntu
+
+relogin or
+
+$ sudo su - ubuntu
+
+$ docker  container ls
+
+
+Docker Labs
+Run our first container 
+  Image Naming convention of DockerHUB
+  reponame:tag
+ eg hello:world
+hello-world is the name of repo
+and there is no tag specified if no tag specified then the tag is latest
+docker first check the image locally if present run the container if not present then it will check docker hub and find hello-worold public repo and download the image with latest tag locally and then run the container
+Every docker image contains a default command that will be executed when you run the container using the image. if the command is  along running process then your container wll be in running state . if the command is a short running process it will start do its job and the process terminates and hence the container also exits
+to list all running container
+$ docker container ls 
+To list all containers
+$ docker container ls -a
+Run container in interactive mode
+docker container run --name test -it centos
+you ar in container shell prompt
+execute 
+ps -ef
+and see /bin/bash is the parent process having pid 1. if the parent process gets stoppeed the container slao exits
+type exit
+$ docker container ls -a
+you will see the container exits
+Run the container again
+docker container run --name test1 -it centos
+now insted of typing exit press CTRL+p+q at once and you wil coe out of the container prompt
+$ docker container ls 
+you will see the container running
+if you want to to back to the container prompt then
+$ docker container attach test1
+exit from the container
+exit
+
+
+
+
+

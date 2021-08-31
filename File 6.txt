@@ -1,0 +1,409 @@
+naresh1a
+i-07b4e7c2553fe492b
+52.77.222.0
+
+
+ 
+naresh1b
+i-0af69b3dbf8871eb8
+122.248.226.126
+
+//////////////////////////
+
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+spec:
+  containers:
+  - name: app
+    image: nginx
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  - name: log-aggregator
+    image: tomee
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+kubectl apply -f pod_resource.yaml
+kubectl get pod
+you will see the pod are running 
+kubectl describe pod frontend
+you will see the request and limit defined in the pod
+modify the yaml file
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+spec:
+  containers:
+  - name: app
+    image: nginx
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "2"
+      limits:
+        memory: "128Mi"
+        cpu: "4"
+  - name: log-aggregator
+    image: tomee
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: “2"
+      limits:
+        memory: "128Mi"
+        cpu: "3"
+kubectl delete pod frontend
+kubectl apply -f pod_resource.yaml
+kubectl get pod
+you will see the pod is in pending state
+kubectl describe pod frontend
+you will able to find the reason for the pod in pending state
+
+​[2:57 PM] AYYAN RAHMAN (Guest)
+
+Pod Resource snd health check
+cat > pod_resource.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+spec:
+  containers:
+  - name: app
+    image: nginx
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+  - name: log-aggregator
+    image: tomee
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: "500m"
+        
+kubectl apply -f pod_resource.yaml
+kubectl get pod
+you will see the pod are running 
+kubectl describe pod frontend
+you will see the request and limit defined in the pod
+to see the resource allocation of the worker node where the pod is running
+kubectl describe node k8worker1
+delete the pod
+kubectl delete -f pod-resource.yaml
+modify the yaml file
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+spec:
+  containers:
+  - name: app
+    image: nginx
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "2"
+      limits:
+        memory: "128Mi"
+        cpu: "4"
+  - name: log-aggregator
+    image: tomee
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: “2"
+      limits:
+        memory: "128Mi"
+        cpu: "3"
+
+kubectl apply -f pod_resource.yaml
+kubectl get pod
+you will see the pod is in pending state
+kubectl describe pod frontend
+you will able to find the reason for the pod in pending state
+
+
+
+////////////////////////////KUBECTL HEALTH CHECK//////////////////////////////////////////
+
+Pod health check
+cat > pod_liveness.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    test: liveness
+  name: liveness-exec
+spec:
+  containers:
+  - name: liveness
+    image: k8s.gcr.io/busybox
+    args:
+    - /bin/sh
+    - -c
+    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600
+    livenessProbe:
+      exec:
+        command:
+        - cat
+        - /tmp/healthy
+      initialDelaySeconds: 5
+      periodSeconds: 5
+
+ctrl+d to save
+
+kubectl apply -f pod_liveness.yaml
+after 30 seconds the pod will restart as health check will fail
+check continuously the output of 
+kubectl describe pod liveness-exec 
+create the following yaml file
+cat > pod-health-full.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kuard
+spec:
+  volumes:
+    - name: "kuard-data"
+      emptyDir: {} 
+  containers:
+    - image: gcr.io/kuar-demo/kuard-amd64:1
+      name: kuard
+      ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+      resources:
+        requests:
+          cpu: "500m"
+          memory: "128Mi"
+        limits:
+          cpu: "1000m"
+          memory: "256Mi"
+      volumeMounts:
+        - mountPath: "/data"
+          name: "kuard-data"
+      livenessProbe:
+        httpGet:
+          path: /healthy
+          port: 8080
+        initialDelaySeconds: 5
+        timeoutSeconds: 1
+        periodSeconds: 10
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /ready
+          port: 8080
+        initialDelaySeconds: 30
+        timeoutSeconds: 1
+        periodSeconds: 10
+        failureThreshold: 3
+kubectl apply -f pod-health-full.yaml
+check the pod status
+kubectl get pod
+describe the pod status
+kubectl describe pod kuard
+to verify that the health is done 
+kubectl logs kuard
+to check the endpoints of the health check manually
+kubectl get pod kuard -o wide
+curl -v http://podip:8080/healthy
+for readinessprobe
+curl -v http://podip:8080/ready
+delete the pod
+kubectl delete pod kuard
+
+
+/////////////////Types of PODs////////////
+
+
+static pod
+login to the worker1 node 
+change the user to root using
+sudo su -
+change directory to 
+cd /etc/kubernetes/manifests
+the diectory is used by kubelet.
+create the following yaml file in the same directory
+cat > pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vote
+  labels:
+    app: python
+    role: vote
+    version: v1
+spec:
+  containers:
+    - name: app
+      image: schoolofdevops/vote:v2
+      ports:
+        - containerPort: 80
+          protocol: TCP
+save the file using ctrl+d
+exit from the worker node and login to the control plane (k8master) node
+execute the ccmmand
+kubectl get pod 
+you will see a pod running with name vote-k8worker1 . the pod is a static pod controller and run by kubelet. 
+it will only run on this node
+try to delete the pod
+kubectl delete pod vote-k8worker1
+execute the command
+kubectl get pod
+you will see the pod recreated and in running state. kubelet will start the pod in case of any failure. 
+if the node goes down then the pod will also be deleted as the pod is a static pod and can only run on the k8worker1 node
+to delete the static pod
+login to the worker1 node
+sudo su -
+cd /etc/kubernetes/manifests
+delete the pod.yaml file
+rm pod.yaml
+exit from the worker node and login to the master node 
+execute kubectl get pod
+you will see the pod is deleted
+
+/////////////////////// ReplicaSet for High availablity //////////
+
+
+Replicaset lab
+cd k8template
+delete all the pod
+$ kubectl delete pod --all
+cat >vote-rs.yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: vote
+spec:
+  replicas: 5
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: vote
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: vote
+      labels:
+        app: python
+        role: vote
+        version: v2
+    spec:
+      containers:
+        - name: app
+          image: schoolofdevops/vote:v2
+          ports:
+            - containerPort: 80
+              protocol: TCP
+ctrl+d to save
+create the repicaset
+$ kubectl apply -f vote-rs.yaml
+To list the replicaset
+$ kubectl get rs
+to list the pods
+$ kubectl get pod
+to display detailed information about pod
+$ kubectl describe rs vote
+Test the pod HA by deleting one pod
+$ kubectl get pod
+copy one of the pod name
+$ kubectl delete pod podname
+eg
+$ kubectl delete pod vote-5shbs
+ you will see a new pod immidiately created
+Creare the normal pod using the folliwng yaml file
+cat > newpod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vote
+  labels:
+    app: python
+    role: vote
+    version: v1
+spec:
+  containers:
+    - name: app
+      image: schoolofdevops/vote:v2
+      ports:
+        - containerPort: 80
+          protocol: TCP
+ctrl+d
+$ kubectl apply -f newpod.yaml
+$ kubectl get pod
+you will see the new pod is terminating . the reason of terminating of the new pod that the new pod is having
+ the same label what is there in the selector of the rs
+Changed the desired state of replicaset by editing the file vote-rs.yaml and modify the replicas from 5 to 8
+and then
+$ vi vote-rs.yaml
+chnage replca count to 8
+$ kubectl apply -f vote-rs.yaml
+Modify the replica count using command
+$ kubectl scale rs vote --replicas=6
+Updating the application image in Replicaset
+modify the vote-rs.yaml file and update the pod label to v3 and the image version to v3
+vi vote-rs.yaml  
+the file content should be like this 
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: vote
+spec:
+  replicas: 4
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: vote
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: vote
+      labels:
+        app: python
+        role: vote
+        version: v3
+    spec:
+      containers:
+        - name: app
+          image: schoolofdevops/vote:v3
+          ports:
+            - containerPort: 80
+              protocol: TCP
+kubectl apply -f vote-rs.yaml
+To verify the change 
+$ kubectl describe rs vote 
+you will see the label and umage get updated and now lets verify the pod
+$ kubectl get pod
+copy any one of the pod name and execute
+$ kubectl describe pod pod_name
+you will find the pod desription container the old label and old image. 
+Delete the pod and check the newly crated pod
+$ kubectl describe pod podname
+you will see the new pod is updated with the new label and docker image.
+Delete the rest of the pod and verify all the pod using th above command.
+Replicaset do not have the functionality of performing auto upgrade of the application. 
+After modifying the image user need to manually delete the pod and then new pod created with the new version

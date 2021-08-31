@@ -1,0 +1,274 @@
+naresh1b
+i-0af69b3dbf8871eb8
+18.136.120.55
+ 
+naresh1a
+i-07b4e7c2553fe492b
+13.229.208.13
+
+////////////////
+
+To list all namespace
+$ kubectl get ns
+To display detailed information about namespace
+$ kubectl describe ns ns_name
+eg
+$ kubectl describe ns kube-system
+To create namespace
+$ kubectl create ns test
+$ kubectl create ns prod
+to list newly created namespace
+$ kubectl get ns
+To delete namespace
+$ kubectl delete ns test
+Create namespace suing yaml file
+$ kubectl create ns instavote --dry-run=client -o yaml    * it will print the yaml file as the putput)
+Save the yaml file
+ kubectl create ns instavote --dry-run=client -o yaml >instavotens.yaml
+Create the namespace
+$ kubectl apply -f instavotens.yaml
+
+to delete the namespace using yaml file
+$ kubectl delete -f instavotens.yaml
+
+/////////////////////
+
+Pod basic commands
+To list pod in default namespaces
+$ kubectl get pod
+To list the pod running in all namespaces
+$ kubectl get pod --all-namespaces
+to create the pod
+
+eg
+$ kubectl run testpod --image=nginx 
+To check the pod status
+$ kubectl get pod
+To dispay detailed information about pod and events
+$ kubectl describe pod testpod
+To list the nodes where the pod is running and pod ip details
+$ kubectl get pod -o wide
+To login to the pod containers
+$ kubectl exec -it testpod sh
+To delete the pod
+$ kubectl delete pod testpod
+
+////////////////////////////
+
+Create POD using Yaml file
+Generate the Yaml file using the kubectl command with dry-run option
+
+ kubectl run demopod --image=nginx --dry-run=client -o yaml
+save the output of the above command to a file
+kubectl run demopod --image=nginx --dry-run=client -o yaml > demopod.yaml
+Create the pod using yaml file
+$ kubectl apply -f demopod.yaml
+to list the pod 
+$ kubectl get pod
+to delete the pod 
+$ kubectl delete -f demopod.yaml
+Pod labels
+Pod labels are key value pair that we assigned to pod and provide meningful information to pod . POD labels are mandatory and ned to assigned to pod by the user
+To cretae the pod with user defined label
+$ kubectl run newpod --image=nginx -l app=nginx
+to list the pod labels
+$ kubectl get pod --show-labels
+create the pod using yaml file with labels
+modify the demopod.yaml
+cat >demopod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: tomee
+    env: dev
+    version: v1
+  name: demopod
+spec:
+  containers:
+  - image: nginx
+    name: demopod
+press ctrl-d
+cat demopod.yaml
+$ kubectl apply -f demopod.yaml
+
+To list the pod matching specific labels
+$  kubectl get pod -l app=tomee
+to overrite existing pod label
+$ kubectl label pod demopod app=web --overwrite
+to ad new pod label
+kubectl label pod demopod role=webserver
+to delete the pod label
+ kubectl label pod demopod role-
+to list all the pod labels
+$ kubectl get pod --show-labels
+to delete all the pods
+$ kubectl delete pod --all
+
+/////////////////////////////////
+
+
+LAB 1
+
+Create pod using yaml file
+create a directory 
+$ mkdir k8template
+$ cd k8template
+$ cat > vote-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vote
+  labels:
+    app: python
+    role: vote
+    version: v1
+spec:
+  containers:
+    - name: app
+      image: schoolofdevops/vote:v2
+      ports:
+        - containerPort: 80
+          protocol: TCP
+press ctrl+d
+############kubectl run vote --image=nginx --dry-run=client -o yaml > vote-pod.yaml
+$ kubectl apply -f vote-pod.yaml
+
+===========================================
+
+lab 2 multi-container pod
+​
+Multi contianer pod 
+$ cat > multi-container-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+  labels:
+    tier: front
+    app: nginx
+    role: ui
+spec:
+  containers:
+    - name: nginx
+      image: nginx:stable-alpine
+      ports:
+        - containerPort: 80
+          protocol: TCP
+      volumeMounts:
+        - name: data
+          mountPath: /var/www/html-sample-app
+ 
+    - name: sync 
+      image: schoolofdevops/sync:v2
+      volumeMounts:
+        - name: data
+          mountPath: /var/www/app
+ 
+  volumes:
+    - name: data
+      emptyDir: {​}​
+
+Cretae the pod 
+$ kubectl apply -f multi-container-pod.yaml
+check the pod status
+$ kubectl get pod
+
+To verify that the container of the same pod share network and volume 
+login to first container
+$ kubectl exec -it web sh -c nginx
+execute the following command
+hostname
+ip a
+cat /etc/issue
+cd /var/www/html-sample-app
+create some empty files
+$ touch a b c d e f
+exit
+Login to second container of the pod web
+$ kubectl exec -it web sh -c sync
+execute the following command
+hostnae
+ip a
+cat /etc/issue
+cd /var/www/app
+ls
+you will able to see the same files whihc you created by login to nginx container
+To check the container logs
+kubectl logs web -c nginx
+kubectl logs web -c sync
+
+
+
+/////////////////////////////////////////////////
+
+[5:45 PM] AYYAN RAHMAN (Guest)
+    Download the yaml file
+apt-get install wget -y
+wget https://k8s.io/examples/pods/commands.yaml
+Display the yaml file
+cat commands.yaml
+kubectl apply -f https://k8s.io/examples/pods/commands.yaml
+	1.	List the running Pods:
+kubectl get pods
+	2.	
+The output shows that the container that ran in the command-demo Pod has completed.
+	3.	To see the output of the command that ran in the container, view the logs from the Pod:
+kubectl logs command-demo
+	4.	
+The output shows the values of the HOSTNAME and KUBERNETES_PORT environment variables:
+command-demo 
+Pod with Environment variables(reference)
+https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
+	1.	Create a Pod based on that manifest:
+	2.	Download the yaml file
+	3.	wget https://k8s.io/examples/pods/inject/envars.yaml
+	4.	cat envars.yaml
+	5.	
+kubectl apply -f https://k8s.io/examples/pods/inject/envars.yaml
+	6.	
+	7.	List the running Pods:
+kubectl get pods -l purpose=demonstrate-envars
+	8.	
+The output is similar to:
+NAME            READY     STATUS    RESTARTS   AGE
+	9.	envar-demo      1/1       Running   0          9s
+	10.
+	11.List the Pod's container environment variables:
+kubectl exec envar-demo -- printenv
+	12.
+The output is similar to this:
+NODE_VERSION=4.4.2
+	13.EXAMPLE_SERVICE_PORT_8080_TCP_ADDR=10.3.245.237
+	14.HOSTNAME=envar-demo
+	15....
+	16.DEMO_GREETING=Hello from the environment
+	17.DEMO_FAREWELL=Such a sweet sorrow
+​[5:46 PM] AYYAN RAHMAN (Guest)
+    lab excercise questions qhich you will do and we will discuss the answer tomorrow
+​[5:46 PM] AYYAN RAHMAN (Guest)
+    Deploy a pod named nginx-448839 using the nginx:alpine image.
+​[5:47 PM] AYYAN RAHMAN (Guest)
+    Create a namespace named apx-z993845
+
+
+
+////////////////////////////////////CKA Questions///////////////
+
+
+1.    Deploy a pod named nginx-448839 using the nginx:alpine image.
+	kubectl run nginx-448839 —image=nginx-alpine
+
+2.	  Create a namespace named apx-z993845
+​	​kubectl create ns apx-z993845
+
+3.	  Deploy a messaging pod using the redis:alpine image with the labels set to tier=msg.
+​	kubectl run messaging —image=redis:alpine -l tier=msg
+
+4.	  Export the logs of the e-com-1123 pod to the file /opt/outputs/e-com-1123.logs
+	kubectl logs e-com-1123 >/opt/output/e-com-1123.logs
+	
+5.	  Create a Pod called sega with two containers:
+Container 1: Name tails with image busybox and command: sleep 3600.
+Container 2: Name sonic with image nginx and Environment variable: NGINX_PORT with the value 8080.
+
