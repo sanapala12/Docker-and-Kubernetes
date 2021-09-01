@@ -1,0 +1,230 @@
+naresh1a
+i-07b4e7c2553fe492b
+18.141.172.249
+
+naresh1b
+i-0af69b3dbf8871eb8
+13.213.30.118
+
+
+/////////// Deployment ////////////////
+
+kubectl delete rs vote
+kubectl delete svc vote
+
+Create the Deployment
+$ cat > vote-deploy.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vote
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  revisionHistoryLimit: 4
+  paused: false
+  replicas: 8
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      role: vote
+    matchExpressions:
+      - {key: version, operator: In, values: [v1, v2, v3]}
+  template:
+    metadata:
+      name: vote
+      labels:
+        app: python
+        role: vote
+        version: v2
+    spec:
+      containers:
+        - name: app
+          image: schoolofdevops/vote:v2
+          ports:
+            - containerPort: 80
+              protocol: TCP
+press ctrl+d
+Create the deployment using the following command
+$ kubectl apply -f vote-deploy.yaml
+Create the service for the depoyment
+cat > vote-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: vote
+  labels:
+    role: vote
+spec:
+  selector:
+    role: vote
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30000
+  type: NodePort
+presse ctrl+d
+Create the service 
+$ kubectl apply -f vote-svc.yaml
+to list the deployment,rs and pod
+$ kubectl get deployment,rs,pod
+$ kubectl get deployment
+$ kubectl get rs
+$ kubectl get pod 
+To list te service
+$ kubectl get svc
+verify the node port and access the application using the http://nodeip:nodeport in your browser
+Scaling the deployment
+Modify the vote-deploy.yaml file and change the replica count to 4 . you can als use command line to scale the replicas
+apply the yaml file
+$ vi vote-deploy.yaml 
+change the replica count to 4
+$ kubectl apply -f vote-deploy.yaml
+verify using 
+$ kubectl get deployment
+$ kubectl get pod
+Performing rolling update
+modify the vote-depoy.yaml file and change the pod label to v3 and image to v4
+labels:
+        app: python
+        role: vote
+        version: v3
+    spec:
+      containers:
+        - name: app
+          image: schoolofdevops/vote:v4
+          ports:
+            - containerPort: 80
+              protocol: TCP
+Apply the yaml file
+$ kubectl apply -f vote-deploy.yaml
+To verify that the upgrade started 
+$ kubectl rollout status deployment vote
+browse the application in the browser and refresh the page 2 or 2 times you will see old verion and new version of the application
+$ kubectl get pod 
+$ kubectl describe pod podname
+verify the image name in the describe output and pod label
+To rollback to the previous version if not satisfied with the update
+$ kubectl rollout history deployment vote
+it will diplay different revision of the update history
+To check the changes in each version please use the command
+$ kubectl rollout history deployment vote --revision=1
+To rollback to the previous version (version=1)
+$ kubectl rollout undo deployment vote --to-revision=1
+to verify the update
+$ kubectl rollout status deployment vote
+to check the rollout history
+$ kubectl rollout history deployment vote
+to delete the deployment 
+$ kubectl delete deployment vote
+or
+$ kubectl delete -f vote-deploy.yaml
+
+
+//////////////////////////////////////////////
+
+Pod Scheduling
+
+kubectl get node
+kubectl get node --show-labels
+cat >demopod.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: tomee
+    env: dev
+    version: v1
+  name: demopod
+spec:
+  containers:
+  - image: nginx
+    name: demopod
+  nodeName: k8master
+kubectl apply -f demopod.yaml 
+kubectl get pod -o wide
+you will see that the pod is runing on master node because we have use nodeName and specify the name of the master node on which the pod will run. 
+schduler is not coming in scope when you specify nodename. 
+
+check the node taint of the master node
+kubectl describe node k8master
+remove the taint
+kubectl taint node k8master node-role.kubernetes.io/master-
+check the taint status
+kubectl describe node k8master
+
+$ kubectl delete -f demopod.yaml
+kubectl get node
+Define the label to both the node
+kubectl label node k8master cpu=gpu
+kubectl label node k8worker1 disk=ssd
+kubectl get node --show-labels
+cat > demopod.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: tomee
+    env: dev
+    version: v1
+  name: demopod
+spec:
+  containers:
+  - image: nginx
+    name: demopod
+  nodeSelector:
+    cpu: gpu
+kubectl apply -f demopod.yaml 
+ kubectl get pod -o wide
+now the pod will run on k8master as we are using the nodeSelctor and the label. th pod will run on the node which mathes the node label
+ 
+ 
+Login to the worker node and stop the kubelet service
+$ sudo systemctl stop kubelet
+Login to the master node and exeecute you will see after some time the worker node is  NotReady
+kubectl get node -o wide
+
+Login to the worker node again and start the kubelet service
+$ sudo systemctl start kubelet
+login to the master and check the node status
+kubectl get node
+
+Node Maintenance
+kubectl get node
+
+the command will bring the node to maintainence and disable the scheduling
+-During drain the worker node, if standealone podes are there in worker node then these will be deleted. 
+-If the pods are part of replicaset / deployment those will move to another node automatically.
+ 
+kubectl drain k8worker1 --force --ignore-daemonsets
+kubectl get node -o wide
+kubectl get pod -o wide
+ kubectl get node
+ kubectl create deployment  testsched --image=nginx --replicas=4
+kubectl get pod -o wide
+ kubectl get node 
+Remove the node out of maintainence 
+kubectl uncordon k8worker1
+kubectl get node 
+ kubectl create deployment  testsched2 --image=nginx --replicas=4
+ kubectl get pod -o wide
+kubectl delete deployment testsched testsched2
+
+
+///////////////////////////////////////////////////
+
+Secret and config map
+
+git clone https://github.com/mrbobbytables/k8s-intro-tutorials.git
+
+cd k8s-intro-tutorials/configuration
+
+
+open the browser and use the link https://github.com/mrbobbytables/k8s-intro-tutorials/tree/master/configuration
+
+    follow the lab
+
+/////////////// Must do /// Covers the entair main lab //////////////
