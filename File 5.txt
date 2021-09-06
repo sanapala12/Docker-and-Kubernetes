@@ -202,7 +202,7 @@ kubectl logs web -c sync
 
 /////////////////////////////////////////////////
 
-[5:45 PM] AYYAN RAHMAN (Guest)
+
     Download the yaml file
 apt-get install wget -y
 wget https://k8s.io/examples/pods/commands.yaml
