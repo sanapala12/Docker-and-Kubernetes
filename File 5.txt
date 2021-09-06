@@ -244,11 +244,11 @@ NODE_VERSION=4.4.2
 	15....
 	16.DEMO_GREETING=Hello from the environment
 	17.DEMO_FAREWELL=Such a sweet sorrow
-​[5:46 PM] AYYAN RAHMAN (Guest)
+
     lab excercise questions qhich you will do and we will discuss the answer tomorrow
-​[5:46 PM] AYYAN RAHMAN (Guest)
+
     Deploy a pod named nginx-448839 using the nginx:alpine image.
-​[5:47 PM] AYYAN RAHMAN (Guest)
+
     Create a namespace named apx-z993845
 
 
