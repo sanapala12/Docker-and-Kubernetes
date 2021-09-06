@@ -1,0 +1,445 @@
+
+naresh1a
+i-07b4e7c2553fe492b
+18.141.55.191
+
+
+
+
+
+naresh1b
+i-0af69b3dbf8871eb8
+18.139.83.29
+
+
+
+Create Daemonset
+Create the Yaml file
+cat > ds.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ds-example
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: nginx
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1 
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:stable-alpine
+        ports:
+        - containerPort: 80
+ctrl+d to save
+Create the daemonset
+$ kubectl apply -f ds.yaml
+To check the status
+$ kubectl get ds
+You will notice that the pod is running only on worker node. The master node is having a taint due to which the master node is not allowing any user pod to be run
+To check the taint and remove the taint so that master node can also act as worker node perform the steps beow
+$ kubectl describe node k8master|more
+$ kubectl get ds
+remove the taint
+$ kubectl taint node k8master node-role.kubernetes.io/master-
+Check the daemonset and you will see that the ds pod is not running on master also
+$ kubectl get ds
+check the cni and kube-proxy also running as daemonset
+$ kubectl get ds -n kube-system
+$ kubectl get pod -n kube-system
+To delete the daemonset
+$ kubectl delete -f ds.yaml
+or 
+$ kubectl delete ds ds_name
+
+//////////////// JOB /////
+
+Job
+
+cat > job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+ name: pi
+spec:
+ template:
+   spec:
+     containers:
+     - name: pi
+       image: perl
+       command: ["perl",  "-Mbignum=bpi", "-wle", "print bpi(2000)"]
+     restartPolicy: Never
+ backoffLimit: 4
+
+type ctrl-d to save
+
+kubectl apply -f job.yaml
+
+to list the job
+kubectl get job
+
+you will see the job status
+
+to list the pod created to execute the job
+kubectl get pod
+
+you will see the pod status is completed as the job is complete .
+
+to delete the job
+
+kubectl delete job pi
+
+or
+kubectl delete -f job.yaml
+
+deleting the job will only delete the pod else the pod will be there in completed state
+
+cronjob
+running the job at scheduled time
+
+cat >cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+ name: hello
+spec:
+ schedule: "*/1 * * * *"
+ jobTemplate:
+   spec:
+     template:
+       spec:
+         containers:
+         - name: hello
+           image: busybox
+           imagePullPolicy: IfNotPresent
+           command:
+           - /bin/sh
+           - -c
+           - date; echo Hello from the Kubernetes cluster
+         restartPolicy: OnFailure
+
+type ctrl-d to save
+
+the cronjob will run every one minute
+
+kubectl apply -f cronjob.yaml
+
+to list the cronjob
+
+kubectl get cronjob
+
+to describe the cronjob details
+
+kubectl describe cronjob hello
+
+wait for few minutes and check the status
+
+kubectl get pod
+
+you will see every one minute a new pod is created for the job as per the cron schedule
+
+delete the cronjob
+
+kubectl delete cronjob hello
+
+
+/////////////////////Init Containers/////////////////
+
+Init Containers
+
+init containers are special containers which runs before the application containers and is used for use cases where initilicatization tasks 
+like if the dependent pods should come up first then the pods get start. you can achive this in k8s using init containers. 
+init containers means taks that get executed first then the app pod starts if init containers do run for completion then the ap pod wil wait 
+and will not start
+
+create the init containers
+
+cat > pod-init.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+ name: myapp-pod
+ labels:
+   app: myapp
+spec:
+ containers:
+ - name: myapp-container
+   image: busybox:1.28
+   command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+ initContainers:
+ - name: init-myservice
+   image: busybox:1.28
+   command: ['sh', '-c', "until nslookup myservice.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+ - name: init-mydb
+   image: busybox:1.28
+   command: ['sh', '-c', "until nslookup mydb.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for mydb; sleep 2; done"]
+
+ctrl+d to save
+
+as per the yaml file the init container will look for service myservice and mydb and if the service is available then only the myapp container will start.
+
+apply the yaml file
+
+kubectl apply -f pod-init.yaml
+
+check the pod status
+
+kubectl get pod
+
+kubectl get pod myapp-pod
+
+you will see the pod is in initializing state.
+
+check the logs
+
+kubectl logs myapp-pod
+
+to get more detail
+
+kubectl describe pod myapp-pod
+
+To see logs for the init containers in this Pod, run:
+kubectl logs myapp-pod -c init-myservice
+kubectl logs myapp-pod -c init-mydb
+
+
+Create the Service
+
+cat > pod-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+ name: myservice
+spec:
+ ports:
+ - protocol: TCP
+   port: 80
+   targetPort: 9376
+---
+apiVersion: v1
+kind: Service
+metadata:
+ name: mydb
+spec:
+ ports:
+ - protocol: TCP
+   port: 80
+   targetPort: 9377
+
+ctrl+d to save
+
+kubectl apply -f pod-service.yaml
+
+now see the status of myapp pod
+
+kubectl get pod myapp-pod
+
+you will see the myapp pod is running
+
+check the logs
+
+kubectl logs myapp-pod
+
+you will see the logs te
+
+/////////////////////////Network Policy///////////////////////////////
+
+Network Policy
+create two pods in a new namespace
+kubectl create ns devs
+kubectl run testpod1 --image=nginx --port=80 -n devs
+kubectl run app1 --image=tomee --port=8080 -n devs
+check the pod
+kubectl get pod -o wide -n devs
+ping both the pod ipaddress from the node
+
+Create a default deny ingress policy which will deny all incoming traffic
+cat > ingresspolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+kubectl apply -f ingresspolicy.yaml -n devs
+
+check the policy using
+kubectl get networkpolicy  -n devs
+ping the pod ip again and now you will not able to ping as ingress policy is deny all incoming traffic
+get ip of the pod and ping
+kubectl get pod -o wide -n devs
+ping 10.44.0.5
+
+login to the testpod1
+kubectl exec -it testpod1 bash -n devs
+apt-get update
+apt-get install iputils-ping
+ping www.google.com
+you can ping the google ip address as all egress trafic are allowed
+come out of the container 
+exit
+
+Create a egress deny policy
+cat > egresspolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+ctrld to save
+kubectl apply -f egresspolicy.yaml -n devs
+check the policy using
+kubectl get networkpolicy -n devs
+to describe 
+kubectl describe networkpolicy name
+login to the testpod1 container again
+kubectl exec -it testpod1 bash -n devs
+ping google again 
+ping www.google.com
+the ping request got failed as all egress traffic is denied
+com out of the container using exit command
+delete the network policy and check again
+kubectl delete -f ingresspolicy.yaml -n devs
+kubectl delete -f egresspolicy.yaml -n devs
+
+/////////////////// Volume - Static provisioning//////////////////////////////
+
+Static provisioning
+
+create the persistent volume
+
+cat > mongopv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mongodb-pv
+spec:
+  storageClassName: local-storage
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data"
+ctrl+d to save
+
+Create the pv
+$ kubectl apply -f mongopv.yaml
+
+to display the PV
+
+$ kubectl get pv
+
+to display detailed information about pv
+
+$ kubectl describe pv mongodb-pv
+
+Ceate the Peristent volume claim
+
+cat > mongodb-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+spec:
+  storageClassName: local-storage
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+ctrl+d to save
+
+Create the pvc using the yaml file
+
+$ kubectl apply -f mongodb-pvc.yaml
+
+Display the pvc
+
+$ kubectl get pvc
+
+$ kubectl get pv
+
+Create the POD and use the pvc
+
+cat > mongopod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mongodb
+spec:
+  containers:
+  - image: mongo
+    name: mongodb
+    volumeMounts:
+    - name: mongodb-data
+      mountPath: /data/db
+    ports:
+    - containerPort: 27017
+      protocol: TCP
+  volumes:
+  - name: mongodb-data
+    persistentVolumeClaim:
+      claimName: mongodb-pvc
+ctrld to save
+
+Create the pod
+$ kubectl apply -f mongopod.yaml
+
+to check the pod
+$ kubectl get pod
+
+To verify the data login to the mongodb pod
+kubectl exec -it mongodb sh
+cd /data/db
+touch a b c d e f g
+exit
+
+delete the pod
+kubectl delete pod mongodb
+
+check deleting the pod do not delete the pv and pvc
+kubectl get pv
+
+kubectl get pvc
+
+recreate the pod and verify that the contents are same it means the same pvc is mapped to the pod
+kubectl apply -f mongopod.yaml
+
+kubectl get pod
+
+login to the pod
+kubectl exec -it mongodb sh
+ls -l /data/db
+the contents are same
+
+
+delete the pod mongodb
+kubectl delete pod mongodb
+
+check the pv and pvc
+kubectl get pvc
+kubectl get pvc
+
+delete the pvc
+$ kubectl delete pvc mongodb-pvc
+
+check the pv status
+$ kubectl get pv
+$ kubectl delete pv mongodb-pv
+
+///////////////////////////////////////////

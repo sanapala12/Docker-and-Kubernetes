@@ -1,0 +1,466 @@
+naresh1a
+i-07b4e7c2553fe492b
+54.254.147.196
+
+
+ 
+naresh1b
+i-0af69b3dbf8871eb8
+52.77.247.169
+
+/// repeating last file last topic///
+
+Static provisioning
+create the persistent volume 
+cat > mongopv.yaml
+ apiVersion: v1
+ kind: PersistentVolume
+ metadata:
+   name: mongodb-pv
+ spec:
+   storageClassName: local-storage
+   capacity:
+     storage: 1Gi
+   accessModes:
+     - ReadWriteOnce
+   hostPath:
+     path: "/mnt/data"
+ctrl+d to save
+Create the pv
+$ kubectl apply -f mongopv.yaml
+to display the PV
+$ kubectl get pv
+to display detailed information about pv
+$ kubectl describe pv mongodb-pv
+Ceate the Peristent volume claim
+cat > mongodb-pvc.yaml
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: mongodb-pvc
+ spec:
+   storageClassName: local-storage
+   accessModes:
+     - ReadWriteOnce
+   resources:
+     requests:
+       storage: 1Gi
+ctrl+d to save
+Create the pvc using the yaml file
+$ kubectl apply -f mongodb-pvc.yaml
+Display the pvc
+$ kubectl get pvc
+$ kubectl get pv
+Create the POD and use the pvc
+cat > mongopod.yaml
+ apiVersion: v1
+ kind: Pod
+ metadata:
+   name: mongodb 
+ spec:
+   containers:
+   - image: mongo
+     name: mongodb
+     volumeMounts:
+     - name: mongodb-data
+       mountPath: /data/db
+     ports:
+     - containerPort: 27017
+       protocol: TCP
+   volumes:
+   - name: mongodb-data
+     persistentVolumeClaim:
+       claimName: mongodb-pvc
+ctrld to save
+Create the pod 
+$ kubectl apply -f mongopod.yaml
+to check the pod
+$ kubectl get pod
+To verify the data login to the mongodb pod
+kubectl exec -it mongodb sh
+cd /data/db
+touch a b c d e f g
+exit
+delete the pod
+kubectl delete pod mongodb 
+check deleting the pod do not delete the pv and pvc
+kubectl get pv
+kubectl get pvc
+recreate the pod and verify that the contents are same it means the same pvc is mapped to the pod
+kubectl apply -f mongopod.yaml
+kubectl get pod
+login to the pod
+kubectl exec -it mongodb sh
+ls -l /data/db
+the contents are same
+
+delete the pod mongodb
+kubectl delete pod mongodb
+check the pv and pvc
+kubectl get pvc
+kubectl get pvc
+delete the pvc
+$ kubectl delete pvc mongodb-pvc
+check the pv status
+$ kubectl get pv
+$ kubectl delete pv mongodb-pv
+
+///////////////Storage Dynamic provisioning ////////////////
+
+
+
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+$ chmod 700 get_helm.sh
+$ ./get_helm.sh
+helm repo add stable https://charts.helm.sh/stable
+
+Storage Dynamic provisioning using the NFS storage
+install the nfs storage using HELM
+helm install nfs stable/nfs-server-provisioner
+to verify 
+helm list
+the helm will create a storage class for NFS and it will create the nfs storage pod
+kubectl get sc
+kubectl get pod
+install the following package in all the nodes(master and worker)
+sudo apt-get install nfs-common -y 
+modify the mongodbpvc.yaml file and modify the storage class name to nfs
+ apiVersion: v1
+ kind: PersistentVolumeClaim
+ metadata:
+   name: mongodb-pvc
+ spec:
+   storageClassName: nfs
+   accessModes:
+     - ReadWriteOnce
+   resources:
+     requests:
+       storage: 1Gi
+
+create the pvc
+kubectl apply -f mongodbpvc.yaml
+you will find that pv will automatically created in kubernetes
+kubectl get pvc
+kubectl get pv
+login to the storage pod 
+kubectl exec -it nfs-nfs-server-provisioner-0 bash
+execute the following command
+showmount -e
+you will the volume created at the storage end
+type exit to exit from the container prompt
+create the pod 
+cat > mongodb-pod.yaml
+ apiVersion: v1
+ kind: Pod
+ metadata:
+   name: mongodb 
+ spec:
+   containers:
+   - image: mongo
+     name: mongodb
+     volumeMounts:
+     - name: mongodb-data
+       mountPath: /data/db
+     ports:
+     - containerPort: 27017
+       protocol: TCP
+   volumes:
+   - name: mongodb-data
+     persistentVolumeClaim:
+       claimName: mongodb-pvc
+apply the pod yaml file
+kubectl apply -f mongodb-pod.yaml
+delete the pod 
+kubectl delete -f mongodb-pod.yaml
+delete the pvc
+kubectl delete pvc mongodb-pvc 
+deleting the pvc will automatically delete the pv
+
+
+/////////////// Heml ////////////////////
+
+Install the helm chart
+helm install grafana --version=5.1.0 stable/grafana --set service.type=NodePort
+to display helm chart 
+helm list
+to display the values that is been used to install the helm chart 
+helm get values grafana
+to access the grafana dashbaord 
+kubectl get svc
+check the nodeport and access using the public ip of your node
+http://publicip:nodeport
+to get the admin password execute the command
+helm status grafana
+this will give you the command to get the admin password
+
+upgrade the helm chart 
+check the current version
+helm list
+check the revision history
+helm history grafana
+to upgrade
+helm upgrade grafana stable/grafana —set service.type=NodePort
+to check the history
+helm history grafana
+helm performs the rolling upgrade of the application
+ to verify
+kubectl get deployment grafana
+kubectl get rs |grep -i grafana
+you will see 2 replicasets 
+to roll back to the previous version
+helm rollback grafana 1
+1 is the revision number
+to verify
+helm list
+helm history grafana
+Install metrics server
+helm install metric-server stable/metrics-server --set rbac.create=true --set args[0]="--kubelet-insecure-tls=true" --set args[1]="--kubelet-preferred-address-types=InternalIP" --set args[2]="--v=2"
+
+wait for some time and check the node usage and pod usage using
+kubectl top node
+kubectl top pod
+To install the helm chart by manaully chnaging the values in values.yaml file
+helm fetch --untar stable/tomcat
+cd tomcat/
+vi values.yaml 
+modify the replica count-2 and put a # infront of hostport=false
+pwd
+helm install tomcat --values=values.yaml .
+helm status tomcat
+kubectl get pod
+helm status tomcat
+to delete the helm chart
+helm delete tomcat
+
+///////////////// OTHERS FOR ////////////
+
+application.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: blog
+ labels:
+   app: blog
+spec:
+ replicas: 1
+ selector:
+   matchLabels:
+     app: blog
+ template:
+   metadata:
+     labels:
+       app: blog
+   spec:
+     containers:
+     - name: blog
+       image: ghost:2.6-alpine
+       imagePullPolicy: Always
+       ports:
+       - containerPort: 2368
+       env:
+       - name: url
+         value: http://exampleblog.com
+
+
+Service.yaml ]
+apiVersion: v1
+kind: Service
+metadata:
+ name: blog
+spec:
+ type: NodePort
+ selector:
+   app: blog
+ ports:
+ - protocol: TCP
+   port: 80
+   targetPort: 2368
+   nodePort: 30007
+
+
+
+Convert the Service Manifest into a Service Template in a New Helm Chart
+On the first console, create a blob directory called blog:
+
+mkdir blog_ _
+Access the directory:
+
+cd blog
+Run the touch and mkdir commands to create the minimum necessary scaffolding for the new chart. This includes the Chart.yaml and values.yaml files as well as the templates directory:
+
+touch Chart.yaml v]
+touch values.yaml
+mkdir templates
+View the chart details:
+
+ls -l
+Create the Chart.yaml file:
+J
+vim Chart.yaml
+Add the apiVersion, name, and version to the file (this is the minimum data required for Chart.yaml):
+
+apiVersion: v1
+name: blog
+version: 0.1.0
+Save and exit the file.
+
+Create the values.yaml file:
+
+vim values.yaml
+
+service:
+ name: blog
+ type: NodePort
+ port: 80
+ targetPort: 2368
+ nodePort: 30000
+
+
+
+
+View service.yaml:
+
+
+vim service.yaml
+On the first console, use the data from service.yaml to add data to values.yaml. Update nodePort to 30080:
+
+service: - -
+name: blog
+type: NodePort
+port: 80
+targetPort: 2368
+nodePort: 30080
+On the first console, save values.yaml.
+
+On the second console, exit out of service.yaml.
+
+On the second console, run the cd command to open the blog folder and run the vim command to view the values.yaml file:
+
+cd ../blog
+vim ./values.yaml
+On the first console, open the templates directory:
+
+cd templates/
+Copy the service.yaml file into the blog folder's templates directory:
+
+cp ~/kubernetes/service.yaml ./
+Run the ls and vim commands to view service.yaml.
+
+ls service.yaml
+vim service.yaml
+Use the values.yaml data on the second console to make service.yaml a template on the first console. To do this, update the service.yaml file values as follows:
+
+apiVersion: v1
+kind: Service that s temples
+metadata:
+   name: {{ .Values.service.name }}
+spec: -__
+   type: {{ .Values.service.type }}
+   selector:
+       app: {{ .Values.service.name }}
+   ports:
+   -   protocol: TCP
+       port: {{ .Values.service.port }}
+       targetPort: {{ .Values.service.targetPort }}
+       nodePort: {{ .Values.service.nodePort }}
+On the first console, save the template to return to the templates directory.
+
+On the second console, exit out of values.yaml to return to the blog folder.
+
+On the first console, run the cd and helm show values commands to view the blog details. At this point, we have a full Helm chart:
+
+cd ~/
+helm show values blog
+Verify the manifest's syntax is correct:
+
+helm install demo blog --dry-run
+On the second console, run the cd and cat commands so you can compare the two service.yaml files.
+
+cd ../
+cat ./kubernetes/service.yaml
+Confirm the service.yaml data matches on the first and second consoles, with the exception of the nodePort value.
+
+After reviewing the service.yaml data, clear both consoles.
+
+clear
+Convert the Manifest for the Application into a Deployment Template in a New Helm Chart
+On the second console, view the application.yaml file:
+
+vim ./kubernetes/application.yaml
+On the first console, view the blog folder's values.yaml file:
+
+vim ./blog/values.yaml
+Below the existing file data, create a new blog section by inserting the following values. You can copy these values from the second console:
+
+blog: ] -nní
+ name: blog
+ replicas: 1
+ image: ghost:2.6-alpine
+ imagePullPolicy: Always
+ containerPort: 2368
+On the second console, exit out of the chart.
+
+On the first console, save the values file.
+
+On the second console, view the blog folder's values.yaml file:
+
+vim ./blog/values.yaml
+On the first console, copy the kubernetes folder's application.yaml file into the blog folder's templates directory:
+
+cp ./kubernetes/application.yaml ./blog/templates/
+View the application.yaml file in the blog folder's templates directory:
+
+vim ./blog/templates/application.yaml
+Make application.yaml a template by updating the file values as follows:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: {{ .Values.blog.name }}
+ labels: -
+   app: {{ .Values.blog.name}}
+spec: - _
+ replicas: {{ .Values.blog.replicas }}
+ selector:
+   matchLabels:
+     app: {{ .Values.blog.name }}
+ template:
+   metadata:
+     labels:
+       app: {{ .Values.blog.name }}
+   spec:
+     containers:
+     - name: {{ .Values.blog.name }}
+       image: {{ .Values.blog.image }}
+       imagePullPolicy: {{ .Values.blog.imagePullPolicy }}
+       ports:
+       - containerPort: {{ .Values.blog.containerPort }}
+After updating the file values, save the template and clear the console:
+
+clear
+On the second console, exit out of the values.yaml file.
+
+Ensure the Manifests Render Correctly and Deploy the Application as a NodePort Application
+On the first console, run the helm show values command to view the blog folder's details:
+
+helm → n install command with the --dry-run directive. The manifest should display with the service set to run as a NodePort on port 30080 (in the lab video, this step produced an error message because there was a typo in the application.yaml file):
+
+helm install demo blog --dry-run
+Install and deploy Helm:
+
+helm install demo blog n t
+View the pod details (note that the pod's status is ContainerCreating):
+
+kubectl get po
+While the container is being created, view the service details (note that the blog service is running on the correct NodePort of 30080):
+
+kubectl get svc
+Verify the pod's status is now Running:
+
+kubectl get po
+On the second console, exit out of session so you can view the public IP address for the Kubernetes primary server:
+
+exit
+Copy the public IP address of the Kubernetes primary server and paste it into a new browser tab along with the port number: <PUBLIC_IP_ADDRESS>:30080. The ghost blog should load:
+
