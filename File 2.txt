@@ -23,7 +23,7 @@ and see /bin/bash is the parent process having pid 1. if the parent process gets
 type exit
 $ docker container ls -a
 you will see the container exits
-7980312519
+
 
 Run the container again
 docker container run --name test1 -it centos
