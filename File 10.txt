@@ -232,7 +232,7 @@ helm status tomcat
 to delete the helm chart
 helm delete tomcat
 
-///////////////// OTHERS FOR ////////////
+///////////////// OTHERS FOR Helm practice////////////
 
 application.yaml
 
